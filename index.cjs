@@ -146,15 +146,15 @@ class ByteEncoder {
 
   __addInt(size, value) {
     if (size === 8)  this.buffer.setInt8(this.offset ++, value);
-    if (size === 16) { this.buffer.setInt8(this.offset, value); this.offset += 2; };
-    if (size === 32) { this.buffer.setInt8(this.offset, value); this.offset += 4; };
+    if (size === 16) { this.buffer.setInt16(this.offset, value); this.offset += 2; };
+    if (size === 32) { this.buffer.setInt32(this.offset, value); this.offset += 4; };
     if (size === 64) { this.buffer.setBigInt64(this.offset, value); this.offset += 8; };
   }
 
   __addUint(size, value) {
     if (size === 8)  this.buffer.setUint8(this.offset ++, value);
-    if (size === 16) { this.buffer.setUint8(this.offset, value); this.offset += 2; };
-    if (size === 32) { this.buffer.setUint8(this.offset, value); this.offset += 4; };
+    if (size === 16) { this.buffer.setUint16(this.offset, value); this.offset += 2; };
+    if (size === 32) { this.buffer.setUint32(this.offset, value); this.offset += 4; };
     if (size === 64) { this.buffer.setBigUint64(this.offset, value); this.offset += 8; };
   }
 
