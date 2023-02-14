@@ -30,8 +30,8 @@ var ByteDecoder = class {
     this.schema = [];
     this.offset = 0;
   }
-  static string() {
-    return { type: "string" };
+  static string(encoding = "utf8") {
+    return { type: "string", encoding };
   }
   static i8() {
     return { type: "i", size: 8 };
@@ -125,13 +125,25 @@ var ByteDecoder = class {
     }
     throw new Error(`Invalid float size ${size}.`);
   }
-  __parseString() {
+  __parseStringUTF8() {
     let content = "";
     while (this.buffer.getUint8(this.offset) !== 0) {
       content += String.fromCharCode(this.buffer.getUint8(this.offset++));
     }
     this.offset++;
     return content;
+  }
+  __parseStringUTF16() {
+    let content = "";
+    while (this.buffer.getUint16(this.offset) !== 0) {
+      content += String.fromCharCode(this.buffer.getUint16(this.offset));
+      this.offset += 2;
+    }
+    this.offset += 2;
+    return content;
+  }
+  __parseString(encoding) {
+    return encoding === "utf8" ? this.__parseStringUTF8() : this.__parseStringUTF16();
   }
   __parseArray(type) {
     const arraySize = this.__parseUint(8);
@@ -141,7 +153,7 @@ var ByteDecoder = class {
     return arr;
   }
   __parseMap(keyType, valueType) {
-    const mapSize = this.__parseUint(8);
+    const mapSize = this.__parseUint(16);
     const value = {};
     for (let i = 0; i < mapSize; i++) {
       value[this.__parse(keyType)] = this.__parse(valueType);
@@ -149,13 +161,15 @@ var ByteDecoder = class {
     return value;
   }
   __parseStruct(entries) {
-    const dictSize = this.__parseUint(8);
+    const dictSize = this.__parseUint(16);
     const len = Object.keys(entries).length;
     const value = {};
     if (len !== dictSize)
       throw new Error(`Size of structures don't match. (expected ${len}, got ${dictSize})`);
     for (let i = 0; i < dictSize; i++) {
-      const key = this.__parseString();
+      const key = this.__parseString("utf8");
+      if (!entries[key])
+        throw new Error(`Struct got unexpected key '${key}'.`);
       value[key] = this.__parse(entries[key]);
     }
     return value;
@@ -168,7 +182,7 @@ var ByteDecoder = class {
     if (part.type === "f")
       return this.__parseFloat(part.size);
     if (part.type === "string")
-      return this.__parseString();
+      return this.__parseString(part.encoding);
     if (part.type === "array")
       return this.__parseArray(part.itemType);
     if (part.type === "map")
@@ -187,7 +201,7 @@ var ByteDecoder = class {
     for (const part of this.schema) {
       parsed.push(this.__parse(part));
     }
-    return parsed;
+    return parsed.length === 1 ? parsed[0] : parsed;
   }
 };
 var ByteEncoder = class {
@@ -243,14 +257,22 @@ var ByteEncoder = class {
       this.offset += 8;
     }
   }
-  __addString(value) {
+  __addStringUTF8(value) {
     for (const char of value)
       this.buffer.setUint8(this.offset++, char.charCodeAt(0));
     this.buffer.setUint8(this.offset++, 0);
   }
+  __addStringUTF16(value) {
+    for (const char of value) {
+      this.buffer.setUint16(this.offset, char.charCodeAt(0));
+      this.offset += 2;
+    }
+    this.buffer.setUint16(this.offset, 0);
+    this.offset += 2;
+  }
   __add(item) {
     if (item.type === "string")
-      return this.__addString(item.value);
+      return item.encoding === "utf8" ? this.__addStringUTF8(item.value) : this.__addStringUTF16(item.value);
     if (item.type === "i")
       return this.__addInt(item.size, item.value);
     if (item.type === "u")
@@ -265,7 +287,7 @@ var ByteEncoder = class {
       return;
     }
     if (item.type === "map") {
-      this.__addUint(8, Math.floor(item.entries.length / 2));
+      this.__addUint(16, Math.floor(item.entries.length / 2));
       for (let i = 0; i < item.entries.length; i += 2) {
         this.__add(item.entries[i]);
         this.__add(item.entries[i + 1]);
@@ -273,9 +295,9 @@ var ByteEncoder = class {
       return;
     }
     if (item.type === "struct") {
-      this.__addUint(8, Object.keys(item.entries).length);
+      this.__addUint(16, Object.keys(item.entries).length);
       for (const [key, val] of Object.entries(item.entries)) {
-        this.__addString(key);
+        this.__addStringUTF8(key);
         this.__add(val);
       }
       return;
@@ -286,8 +308,8 @@ var ByteEncoder = class {
       this.__add(item);
     return this;
   }
-  static string(str) {
-    return { type: "string", value: str };
+  static string(val, encoding = "utf8") {
+    return { type: "string", value: val, encoding };
   }
   static i8(val) {
     return { type: "i", size: 8, value: val };

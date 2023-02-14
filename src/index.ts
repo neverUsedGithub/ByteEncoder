@@ -10,8 +10,8 @@ export class ByteDecoder {
     this.schema = [];
     this.offset = 0;
   }
-
-  static string() { return { type: "string" } }
+  
+  static string(encoding: ("utf8" | "utf16") = "utf8") { return { type: "string", encoding } }
   static i8()  { return { type: "i", size: 8 } }
   static i16() { return { type: "i", size: 16 } }
   static i32() { return { type: "i", size: 32 } }
@@ -29,7 +29,7 @@ export class ByteDecoder {
   static int() { return { type: "i", size: 32 } }
   static uint() { return { type: "u", size: 32 } }
   static float() { return { type: "f", size: 32 } }
-
+  
   static new(...items) {
     return new ByteDecoder().add(...items);
   }
@@ -59,7 +59,7 @@ export class ByteDecoder {
     throw new Error(`Invalid float size ${size}.`)
   }
 
-  __parseString() {
+  __parseStringUTF8() {
     let content = "";
     while (this.buffer.getUint8(this.offset) !== 0) {
       content += String.fromCharCode(this.buffer.getUint8(this.offset ++));
@@ -67,6 +67,21 @@ export class ByteDecoder {
     this.offset ++;
 
     return content;
+  }
+
+  __parseStringUTF16() {
+    let content = "";
+    while (this.buffer.getUint16(this.offset) !== 0) {
+      content += String.fromCharCode(this.buffer.getUint16(this.offset));
+      this.offset += 2;
+    }
+    this.offset += 2;
+
+    return content;
+  }
+
+  __parseString(encoding: "utf8" | "utf16") {
+    return encoding === "utf8" ? this.__parseStringUTF8() : this.__parseStringUTF16();
   }
 
   __parseArray(type: AnyJSON) {
@@ -80,7 +95,7 @@ export class ByteDecoder {
   }
 
   __parseMap(keyType: AnyJSON, valueType: AnyJSON) {
-    const mapSize = this.__parseUint(8);
+    const mapSize = this.__parseUint(16);
     const value: AnyJSON = {};
 
     for (let i = 0; i < mapSize; i++) {
@@ -90,8 +105,8 @@ export class ByteDecoder {
     return value;
   }
 
-  __parseStruct(entries) {
-    const dictSize = this.__parseUint(8);
+  __parseStruct(entries: AnyJSON) {
+    const dictSize = this.__parseUint(16);
     const len = Object.keys(entries).length;
     const value = {};
     
@@ -99,7 +114,8 @@ export class ByteDecoder {
       throw new Error(`Size of structures don't match. (expected ${len}, got ${dictSize})`)
 
     for (let i = 0; i < dictSize; i++) {
-      const key = this.__parseString();
+      const key = this.__parseString("utf8");
+      if (!entries[key]) throw new Error(`Struct got unexpected key '${key}'.`)
       value[key] = this.__parse(entries[key])
     }
 
@@ -117,7 +133,7 @@ export class ByteDecoder {
       return this.__parseFloat(part.size);
 
     if (part.type === "string")
-      return this.__parseString();
+      return this.__parseString(part.encoding);
 
     if (part.type === "array")
       return this.__parseArray(part.itemType);
@@ -131,9 +147,9 @@ export class ByteDecoder {
     throw new Error("Invalid type.")
   }
 
-  add(...types) { this.schema = this.schema.concat(types); return this; }
+  add(...types: AnyJSON[]) { this.schema = this.schema.concat(types); return this; }
   
-  decode(data) {
+  decode(data: ArrayBufferLike) {
     this.buffer = new DataView(data);
     const parsed: DecodedType[] = [];
 
@@ -141,7 +157,7 @@ export class ByteDecoder {
       parsed.push(this.__parse(part))
     }
 
-    return parsed;
+    return parsed.length === 1 ? parsed[0] : parsed;
   }
 }
 
@@ -173,15 +189,26 @@ export class ByteEncoder {
     if (size === 64) { this.buffer.setFloat64(this.offset, value); this.offset += 8; }
   }
 
-  __addString(value: string) {
+  __addStringUTF8(value: string) {
     for (const char of value)
       this.buffer.setUint8(this.offset ++, char.charCodeAt(0));
     this.buffer.setUint8(this.offset ++, 0);
   }
 
+  __addStringUTF16(value: string) {
+    for (const char of value) {
+      this.buffer.setUint16(this.offset, char.charCodeAt(0));
+      this.offset += 2;
+    }
+    this.buffer.setUint16(this.offset, 0);
+    this.offset += 2;
+  }
+
   __add(item: AnyJSON) {
     if (item.type === "string")
-      return this.__addString(item.value);
+      return item.encoding === "utf8" ?
+        this.__addStringUTF8(item.value) :
+        this.__addStringUTF16(item.value);
 
     if (item.type === "i")
       return this.__addInt(item.size, item.value);
@@ -201,7 +228,7 @@ export class ByteEncoder {
     }
 
     if (item.type === "map") {
-      this.__addUint(8, Math.floor(item.entries.length / 2));
+      this.__addUint(16, Math.floor(item.entries.length / 2));
       
       for (let i = 0; i < item.entries.length; i += 2) {
         this.__add(item.entries[i]);
@@ -211,10 +238,11 @@ export class ByteEncoder {
     }
 
     if (item.type === "struct") {
-      this.__addUint(8, Object.keys(item.entries).length);
+      this.__addUint(16, Object.keys(item.entries).length);
 
       for (const [key, val] of Object.entries(item.entries)) {
-        this.__addString(key);
+        // TODO: option for UTF-16 keys
+        this.__addStringUTF8(key);
         this.__add(val as AnyJSON);
       }
       return;
@@ -227,7 +255,7 @@ export class ByteEncoder {
     return this;
   }
 
-  static string(str: string) { return { type: "string", value: str }; }
+  static string(val: string, encoding: ("utf8" | "utf16") = "utf8") { return { type: "string", value: val, encoding } }
   static i8(val: number)  { return { type: "i", size: 8, value: val }; }
   static i16(val: number) { return { type: "i", size: 16, value: val }; }
   static i32(val: number) { return { type: "i", size: 32, value: val }; }

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "build": "tsup src/index.ts --format cjs,esm"
   },
   "exports": {
     "import": "./dist/index.js",
@@ -15,6 +16,7 @@
   "author": "JustCoding123",
   "license": "ISC",
   "devDependencies": {
+    "jest": "^29.4.2",
     "tsup": "^6.5.0"
   }
 }
