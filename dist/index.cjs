@@ -72,6 +72,7 @@ var ByteDecoder = class {
   static struct(entries) {
     return { type: "struct", entries };
   }
+  // Aliases
   static int() {
     return { type: "i", size: 32 };
   }
@@ -197,9 +198,13 @@ var ByteDecoder = class {
   }
   decode(data) {
     this.buffer = new DataView(data);
+    this.offset = 0;
     const parsed = [];
     for (const part of this.schema) {
       parsed.push(this.__parse(part));
+    }
+    if (this.offset !== data.byteLength) {
+      throw new Error("Couldn't parse object.");
     }
     return parsed.length === 1 ? parsed[0] : parsed;
   }
@@ -350,6 +355,7 @@ var ByteEncoder = class {
   static struct(entries) {
     return { type: "struct", entries };
   }
+  // Aliases
   static int(val) {
     return { type: "i", size: 32, value: val };
   }

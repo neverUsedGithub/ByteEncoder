@@ -151,10 +151,16 @@ export class ByteDecoder {
   
   decode(data: ArrayBufferLike) {
     this.buffer = new DataView(data);
+    this.offset = 0;
+
     const parsed: DecodedType[] = [];
 
     for (const part of this.schema) {
       parsed.push(this.__parse(part))
+    }
+
+    if (this.offset !== data.byteLength) {
+        throw new Error("Couldn't parse object.");
     }
 
     return parsed.length === 1 ? parsed[0] : parsed;

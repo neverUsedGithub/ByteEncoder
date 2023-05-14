@@ -1,5 +1,11 @@
 const { bd, be } = require("../dist/index.cjs");
 
+test("Errors on parsing wrong structure", () => {
+    expect(
+        () => bd.new(bd.int()).decode(be.encode(be.string("You can decode this.")))
+    ).toThrow();
+})
+
 test("Encoding strings (utf8, utf16)", () => {
   const encodedUtf8 = be.encode(be.string("im a utf8 string"));
   expect(
