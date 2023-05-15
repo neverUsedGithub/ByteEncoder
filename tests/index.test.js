@@ -6,6 +6,14 @@ test("Errors on parsing wrong structure", () => {
     ).toThrow();
 })
 
+test("Encoding booleans", () => {
+    expect(bd.new(bd.bool()).decode(be.encode(be.bool(true))))
+        .toBe(true);
+    
+    expect(bd.new(bd.bool()).decode(be.encode(be.bool(false))))
+        .toBe(false);
+})
+
 test("Encoding strings (utf8, utf16)", () => {
   const encodedUtf8 = be.encode(be.string("im a utf8 string"));
   expect(

@@ -63,6 +63,9 @@ var ByteDecoder = class {
   static f64() {
     return { type: "f", size: 64 };
   }
+  static bool() {
+    return { type: "bool" };
+  }
   static array(type) {
     return { type: "array", itemType: type };
   }
@@ -82,8 +85,14 @@ var ByteDecoder = class {
   static float() {
     return { type: "f", size: 32 };
   }
+  static boolean() {
+    return this.bool();
+  }
   static new(...items) {
     return new ByteDecoder().add(...items);
+  }
+  __parseBool() {
+    return this.buffer.getUint8(this.offset++) === 1;
   }
   __parseInt(size) {
     if (size === 8)
@@ -190,6 +199,8 @@ var ByteDecoder = class {
       return this.__parseMap(part.keyType, part.valueType);
     if (part.type === "struct")
       return this.__parseStruct(part.entries);
+    if (part.type === "bool")
+      return this.__parseBool();
     throw new Error("Invalid type.");
   }
   add(...types) {
@@ -213,6 +224,9 @@ var ByteEncoder = class {
   constructor() {
     this.buffer = new DataView(new ArrayBuffer(999999));
     this.offset = 0;
+  }
+  __addBool(value) {
+    this.buffer.setUint8(this.offset++, value === true ? 1 : 0);
   }
   __addInt(size, value) {
     if (size === 8)
@@ -307,6 +321,9 @@ var ByteEncoder = class {
       }
       return;
     }
+    if (item.type === "bool") {
+      this.__addBool(item.value);
+    }
   }
   add(...items) {
     for (const item of items)
@@ -346,6 +363,9 @@ var ByteEncoder = class {
   static f64(val) {
     return { type: "f", size: 64, value: val };
   }
+  static bool(val) {
+    return { type: "bool", value: val };
+  }
   static array(...values) {
     return { type: "array", values };
   }
@@ -364,6 +384,9 @@ var ByteEncoder = class {
   }
   static float(val) {
     return { type: "f", size: 32, value: val };
+  }
+  static boolean(val) {
+    return this.bool(val);
   }
   static encode(...items) {
     return new ByteEncoder().add(...items)._encode();

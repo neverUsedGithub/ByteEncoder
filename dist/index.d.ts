@@ -1,7 +1,7 @@
 type AnyJSON = {
     [key: string]: any;
 };
-type DecodedType = number | bigint | string | AnyJSON;
+type DecodedType = number | bigint | string | AnyJSON | boolean;
 declare class ByteDecoder {
     buffer: DataView;
     schema: AnyJSON[];
@@ -51,6 +51,9 @@ declare class ByteDecoder {
         type: string;
         size: number;
     };
+    static bool(): {
+        type: string;
+    };
     static array(type: AnyJSON): {
         type: string;
         itemType: AnyJSON;
@@ -76,7 +79,11 @@ declare class ByteDecoder {
         type: string;
         size: number;
     };
+    static boolean(): {
+        type: string;
+    };
     static new(...items: any[]): ByteDecoder;
+    __parseBool(): boolean;
     __parseInt(size: number): number | bigint;
     __parseUint(size: number): number | bigint;
     __parseFloat(size: number): number;
@@ -94,6 +101,7 @@ declare class ByteEncoder {
     buffer: DataView;
     offset: number;
     constructor();
+    __addBool(value: boolean): void;
     __addInt(size: number, value: number): void;
     __addUint(size: number, value: number): void;
     __addFloat(size: number, value: number): void;
@@ -156,6 +164,10 @@ declare class ByteEncoder {
         size: number;
         value: bigint;
     };
+    static bool(val: boolean): {
+        type: string;
+        value: boolean;
+    };
     static array(...values: AnyJSON[]): {
         type: string;
         values: AnyJSON[];
@@ -182,6 +194,10 @@ declare class ByteEncoder {
         type: string;
         size: number;
         value: number;
+    };
+    static boolean(val: boolean): {
+        type: string;
+        value: boolean;
     };
     static encode(...items: any[]): ArrayBuffer;
     _encode(): ArrayBuffer;

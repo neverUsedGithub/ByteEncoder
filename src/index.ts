@@ -1,5 +1,5 @@
 type AnyJSON = { [key: string]: any };
-type DecodedType = number | bigint | string | AnyJSON;
+type DecodedType = number | bigint | string | AnyJSON | boolean;
 
 export class ByteDecoder {
   buffer: DataView;
@@ -22,6 +22,7 @@ export class ByteDecoder {
   static u64() { return { type: "u", size: 64 } }
   static f32() { return { type: "f", size: 32 } }
   static f64() { return { type: "f", size: 64 } }
+  static bool() { return { type: "bool" } }
   static array(type: AnyJSON) { return { type: "array", itemType: type } }
   static map(keyType: AnyJSON, valueType: AnyJSON) { return { type: "map", keyType, valueType } }
   static struct(entries: AnyJSON) { return { type: "struct", entries } }
@@ -29,9 +30,14 @@ export class ByteDecoder {
   static int() { return { type: "i", size: 32 } }
   static uint() { return { type: "u", size: 32 } }
   static float() { return { type: "f", size: 32 } }
+  static boolean() { return this.bool(); }
   
   static new(...items) {
     return new ByteDecoder().add(...items);
+  }
+
+  __parseBool() {
+    return this.buffer.getUint8(this.offset ++) === 1;
   }
 
   __parseInt(size: number) {
@@ -144,6 +150,9 @@ export class ByteDecoder {
     if (part.type === "struct")
       return this.__parseStruct(part.entries);
 
+    if (part.type === "bool")
+      return this.__parseBool();
+
     throw new Error("Invalid type.")
   }
 
@@ -174,6 +183,10 @@ export class ByteEncoder {
   constructor() {
     this.buffer = new DataView(new ArrayBuffer(999999));
     this.offset = 0;
+  }
+
+  __addBool(value: boolean) {
+    this.buffer.setUint8(this.offset ++, value === true ? 1 : 0);
   }
 
   __addInt(size: number, value: number) {
@@ -253,6 +266,10 @@ export class ByteEncoder {
       }
       return;
     }
+
+    if (item.type === "bool") {
+      this.__addBool(item.value);
+    }
   }
 
   add(...items: AnyJSON[]) {
@@ -272,6 +289,7 @@ export class ByteEncoder {
   static u64(val: bigint) { return { type: "u", size: 64, value: val }; }
   static f32(val: number) { return { type: "f", size: 32, value: val } }
   static f64(val: bigint) { return { type: "f", size: 64, value: val } }
+  static bool(val: boolean) { return { type: "bool", value: val } }
   static array(...values: AnyJSON[]) { return { type: "array", values } } 
   static map(...entries: AnyJSON[]) { return { type: "map", entries } }
   static struct(entries: AnyJSON) { return { type: "struct", entries } }
@@ -279,6 +297,7 @@ export class ByteEncoder {
   static int(val: number) { return { type: "i", size: 32, value: val } }
   static uint(val: number) { return { type: "u", size: 32, value: val } }
   static float(val: number) { return { type: "f", size: 32, value: val } }
+  static boolean(val: boolean) { return this.bool(val); }
   
   static encode(...items) {
     return new ByteEncoder().add(...items)._encode();
