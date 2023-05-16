@@ -95,7 +95,7 @@ declare class ByteDecoder {
     __parseStruct(entries: AnyJSON): {};
     __parse(part: AnyJSON): DecodedType;
     add(...types: AnyJSON[]): this;
-    decode(data: ArrayBufferLike): DecodedType;
+    decode(data: ArrayBufferLike, checkLength?: boolean): DecodedType;
 }
 declare class ByteEncoder {
     buffer: DataView;

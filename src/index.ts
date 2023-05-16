@@ -158,7 +158,7 @@ export class ByteDecoder {
 
   add(...types: AnyJSON[]) { this.schema = this.schema.concat(types); return this; }
   
-  decode(data: ArrayBufferLike) {
+  decode(data: ArrayBufferLike, checkLength: boolean = true) {
     this.buffer = new DataView(data);
     this.offset = 0;
 
@@ -168,7 +168,7 @@ export class ByteDecoder {
       parsed.push(this.__parse(part))
     }
 
-    if (this.offset !== data.byteLength) {
+    if (checkLength && this.offset !== data.byteLength) {
         throw new Error("Couldn't parse object.");
     }
 
